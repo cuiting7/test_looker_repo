@@ -187,6 +187,21 @@ view: final_table_sales {
     sql: ${TABLE}."delivery date" ;;
   }
 
+
+  dimension_group: date {
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql:  ${TABLE}."delivery date" ;;
+  }
+
   dimension: store_id {
     type: number
     sql: ${TABLE}.store_id ;;
