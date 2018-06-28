@@ -19,3 +19,5 @@ include: "*.dashboard.lookml"  # include all dashboards in this project
 # }
 
 explore: final_table_sales {}
+
+explore: orders {}
