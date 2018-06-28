@@ -53,18 +53,21 @@ view: final_table_sales {
           SELECT delivery_date
               , store_id
               , restaurant_id
-                  , coalesce(sum(delivery_fees), 0.0) AS "DELIVERY FEES"
-                  , coalesce(sum(vendor_sales), 0.0) AS "Vendor Sales"
-                  , coalesce((sum(vendor_sales) * 0.048 + sum(delivery_fees)), 0.0) AS "Revenue [sales, delivery fee]"
-                  , coalesce(sum(credit_card_processing_fee), 0.0) AS "CREDIT CARD FEES"
-                  , coalesce(sum(delivery_cost), 0.0) AS "DELIVERY COST"
-                  , count(*) AS "TOTAL DELIVERIES"
-                  , coalesce((sum(vendor_sales) * 0.0025), 0.0) AS "DAMAGES ESTIMATE"
-                  , SUM(1 - fill_in::INT) AS "DELIVERIES EXCL FILL INS"
+                  , coalesce(sum(delivery_fees), 0.0) AS "delivery fees"
+                  , coalesce(sum(vendor_sales), 0.0) AS "vendor sales"
+                  , coalesce((sum(vendor_sales) * 0.048 + sum(delivery_fees)), 0.0) AS "revenue [sales, delivery fee]"
+                  , coalesce(sum(credit_card_processing_fee), 0.0) AS "credit card fees"
+                  , coalesce(sum(delivery_cost), 0.0) AS "delivery cost"
+                  , count(*) AS "total deliveries"
+                  , coalesce((sum(vendor_sales) * 0.0025), 0.0) AS "damages estimate"
+                  , SUM(1 - fill_in::INT) AS "deliveries excl fill ins"
           FROM order_sales_fees
           GROUP BY delivery_date, store_id, restaurant_id
       )
       ,
+
+      /*%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%*/
+      /* ------------- Subscripution Revenue ----------------- */
 
       monthly_subscriptions as
       (
@@ -74,7 +77,7 @@ view: final_table_sales {
                , date(promo_codes.expiration_date - '31 days'::interval * promo_codes.period) as promo_start_date
                , promo_codes.expiration_date
                --, promo_codes.price / promo_codes.period / 2583.33 AS "Daily Subscription Revenue"
-               , promo_codes.price / promo_codes.period / 3100.33 AS "Daily Subscription Revenue"
+               , promo_codes.price / promo_codes.period / 3100.33 AS "daily subscription revenue"
           FROM promo_codes
           JOIN orders ON promo_codes.order_id = orders.id
           WHERE orders.status > 0
@@ -89,11 +92,10 @@ view: final_table_sales {
       )
       ,
 
-
       monthly_subscriptions_daily_view as
       (
           select t1.*
-                 , date_sk as "Promo Active Date"
+                 , date_sk as "promo active date"
           from monthly_subscriptions t1, dates td
           where td.date_sk between t1.promo_start_date and t1.expiration_date
           order by id, store_id, td.date_sk, restaurant_id
@@ -102,77 +104,75 @@ view: final_table_sales {
 
       subscription_rev as
       (
-          SELECT "Promo Active Date"
+          SELECT "promo active date"
               , store_id
               , restaurant_id
-                  , coalesce(sum("Daily Subscription Revenue"), 0.0) as "Daily Subscription Revenue"
+                  , coalesce(sum("daily subscription revenue"), 0.0) as "daily subscription revenue"
           FROM monthly_subscriptions_daily_view
-          GROUP BY "Promo Active Date", store_id, restaurant_id
-          ORDER BY "Promo Active Date" DESC
+          GROUP BY "promo active date", store_id, restaurant_id
+          ORDER BY "promo active date" DESC
       )
       ,
 
       sales_fees_daily_subscriptions as
       (
-      SELECT coalesce(os.delivery_date, sr."Promo Active Date") as "Delivery Date"
+      SELECT coalesce(os.delivery_date, sr."promo active date") as "delivery date"
              , coalesce(os.store_id, sr.store_id) as store_id
              , coalesce(os.restaurant_id, sr.restaurant_id) as restaurant_id
-             , coalesce("Vendor Sales", 0.0) as "Vendor Sales"
-             , coalesce("DELIVERY FEES", 0.0) as "DELIVERY FEES"
-             , coalesce("Daily Subscription Revenue", 0.0) as "Daily Subscription Revenue"
-             , coalesce("DELIVERY COST", 0.0) as "DELIVERY COST"
-             , coalesce("Revenue [sales, delivery fee]", 0.0) as "Revenue [sales, delivery fee]"
-             , coalesce("CREDIT CARD FEES", 0.0) as "CREDIT CARD FEES"
-             , coalesce("DAMAGES ESTIMATE", 0.0) as "DAMAGES ESTIMATE"
-             , coalesce("TOTAL DELIVERIES", 0.0) as "TOTAL DELIVERIES"
+             , coalesce("vendor sales", 0.0) as "vendor sales"
+             , coalesce("delivery fees", 0.0) as "delivery fees"
+             , coalesce("daily subscription revenue", 0.0) as "daily subscription revenue"
+             , coalesce("delivery cost", 0.0) as "delivery cost"
+             , coalesce("revenue [sales, delivery fee]", 0.0) as "revenue [sales, delivery fee]"
+             , coalesce("credit card fees", 0.0) as "credit card fees"
+             , coalesce("damages estimate", 0.0) as "damages estimate"
+             , coalesce("total deliveries", 0.0) as "total deliveries"
       FROM order_sales_fee_grouped_by_date os
       FULL OUTER JOIN subscription_rev sr
-      ON os.delivery_date = sr."Promo Active Date" and os.restaurant_id = sr.restaurant_id and os.store_id = sr.store_id
+      ON os.delivery_date = sr."promo active date" and os.restaurant_id = sr.restaurant_id and os.store_id = sr.store_id
       )
       ,
 
       revenue_fees as
       (
-          SELECT "Delivery Date"
+          SELECT "delivery date"
                   , store_id
                   , restaurant_id
-                  , coalesce("Vendor Sales", 0.0) as "Vendor Sales"
-                  , coalesce("DELIVERY FEES", 0.0) as "DELIVERY FEES"
-                  , coalesce("Daily Subscription Revenue", 0.0) as "Daily Subscription Revenue"
-                  , coalesce("DELIVERY COST", 0.0) as "DELIVERY COST"
-                  , coalesce("Revenue [sales, delivery fee]", 0.0) as "Revenue [sales, delivery fee]"
-                  , coalesce("CREDIT CARD FEES", 0.0) as "CREDIT CARD FEES"
-                  , coalesce("DAMAGES ESTIMATE", 0.0) as "DAMAGES ESTIMATE"
-                  , coalesce("TOTAL DELIVERIES", 0.0) as "TOTAL DELIVERIES"
+                  , coalesce("vendor sales", 0.0) as "vendor sales"
+                  , coalesce("delivery fees", 0.0) as "delivery fees"
+                  , coalesce("daily subscription revenue", 0.0) as "daily subscription revenue"
+                  , coalesce("delivery cost", 0.0) as "delivery cost"
+                  , coalesce("revenue [sales, delivery fee]", 0.0) as "revenue [sales, delivery fee]"
+                  , coalesce("credit card fees", 0.0) as "credit card fees"
+                  , coalesce("damages estimate", 0.0) as "damages estimate"
+                  , coalesce("total deliveries", 0.0) as "total deliveries"
           FROM sales_fees_daily_subscriptions
       )
 
       /*
-      select sum("vendor sales") as "vendor sales"
-             , sum("DELIVERY FEES" + "Daily Subscription Revenue") as "TOTAL DELIVERY FEES"
-             , sum("DELIVERY FEES" + "Daily Subscription Revenue") / sum("vendor sales") * 100 AS "DELIVERY FEE %"
-             , sum("CREDIT CARD FEES") as "Card charges (2.6% of total transaction)"
-             , (sum("DELIVERY FEES" + "Daily Subscription Revenue") - sum("DELIVERY COST"))AS "Net Revenue"
-             , (sum("DELIVERY FEES" + "Daily Subscription Revenue") - sum("DELIVERY COST"))/ sum("vendor sales")  * 100 AS "Deliver Fee %"
-             , sum("vendor sales") * 0.048 AS "vendor rebate"
-             , sum("vendor sales") * 0.048 + sum("DELIVERY FEES"+ "Daily Subscription Revenue") - sum("DELIVERY COST") AS "total revenue"
+      select sum("vendor sales" )
+             , sum("delivery fees" + "daily subscription revenue") as "total delivery fees"
+             , sum("delivery fees" + "daily subscription revenue") / sum("vendor sales") * 100 AS "delivery fee %"
+             , sum("credit card fees") as "card charges (2.6% of total transaction)"
+             , (sum("delivery fees" + "daily subscription revenue") - sum("delivery cost"))AS "net revenue"
+             , (sum("delivery fees" + "daily subscription revenue") - sum("delivery cost"))/ sum("vendor sales")  * 100 AS "deliver fee %"
+             , sum("vendor sales") * 0.048 AS "bendor rebate"
+             , sum("vendor sales") * 0.048 + sum("delivery fees"+"daily subscription revenue") - sum("delivery cost") AS "total revenue"
              --, sum("Revenue [sales, delivery fee]" + "Daily Subscription Revenue")as "TOTAL Revenue 2"
-           , sum("TOTAL DELIVERIES") AS "TOTAL_DELIVERIES"
-           , sum("DELIVERY COST") as "DELIVERY COST"
-
+           , sum("total deliveries") AS "total deliveries"
+           , sum("delivery cost") as "delivery cost"
       from revenue_fees
-      where "Delivery Date" between '2018-01-01' and '2018-01-31'
-      ;
+      where "delivery date" between '2018-01-01' and '2018-01-31'
       */
 
       select *
-       , "delivery fees" + "daily subscription revenue" as "total delivery fees"
-       , ("delivery fees" + "daily subscription revenue" - "delivery cost") as "net revenue"
-       , ("vendor sales") * 0.048 as "vendor rebate"
-       , (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") AS "total revenue"
-       , "vendor sales" + (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") as "GMV"
-from revenue_fees
-order by "delivery date" desc, store_id, restaurant_id
+             , "delivery fees" + "daily subscription revenue" as "total delivery fees"
+             , ("delivery fees" + "daily subscription revenue" - "delivery cost") as "net revenue"
+             , ("vendor sales") * 0.048 as "vendor rebate"
+             , (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") AS "total revenue"
+             , "vendor sales" + (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") as "GMV"
+      from revenue_fees
+      order by "delivery date" desc, store_id, restaurant_id
        ;;
   }
 
@@ -183,8 +183,8 @@ order by "delivery date" desc, store_id, restaurant_id
 
   dimension: delivery_date {
     type: date
-    label: "Delivery Date"
-    sql: ${TABLE}."Delivery Date" ;;
+    label: "delivery date"
+    sql: ${TABLE}."delivery date" ;;
   }
 
   dimension: store_id {
@@ -199,50 +199,79 @@ order by "delivery date" desc, store_id, restaurant_id
 
   dimension: vendor_sales {
     type: number
-    label: "Vendor Sales"
-    sql: ${TABLE}."Vendor Sales" ;;
+    label: "vendor sales"
+    sql: ${TABLE}."vendor sales" ;;
   }
 
   dimension: delivery_fees {
     type: number
-    label: "DELIVERY FEES"
-    sql: ${TABLE}."DELIVERY FEES" ;;
+    label: "delivery fees"
+    sql: ${TABLE}."delivery fees" ;;
   }
 
   dimension: daily_subscription_revenue {
     type: number
-    label: "Daily Subscription Revenue"
-    sql: ${TABLE}."Daily Subscription Revenue" ;;
+    label: "daily subscription revenue"
+    sql: ${TABLE}."daily subscription revenue" ;;
   }
 
   dimension: delivery_cost {
     type: number
-    label: "DELIVERY COST"
-    sql: ${TABLE}."DELIVERY COST" ;;
+    label: "delivery cost"
+    sql: ${TABLE}."delivery cost" ;;
   }
 
   dimension: revenue_sales_delivery_fee {
     type: number
-    label: "Revenue [sales, delivery fee]"
-    sql: ${TABLE}."Revenue [sales, delivery fee]" ;;
+    label: "revenue [sales, delivery fee]"
+    sql: ${TABLE}."revenue [sales, delivery fee]" ;;
   }
 
   dimension: credit_card_fees {
     type: number
-    label: "CREDIT CARD FEES"
-    sql: ${TABLE}."CREDIT CARD FEES" ;;
+    label: "credit card fees"
+    sql: ${TABLE}."credit card fees" ;;
   }
 
   dimension: damages_estimate {
     type: number
-    label: "DAMAGES ESTIMATE"
-    sql: ${TABLE}."DAMAGES ESTIMATE" ;;
+    label: "damages estimate"
+    sql: ${TABLE}."damages estimate" ;;
   }
 
   dimension: total_deliveries {
     type: number
-    label: "TOTAL DELIVERIES"
-    sql: ${TABLE}."TOTAL DELIVERIES" ;;
+    label: "total deliveries"
+    sql: ${TABLE}."total deliveries" ;;
+  }
+
+  dimension: total_delivery_fees {
+    type: number
+    label: "total delivery fees"
+    sql: ${TABLE}."total delivery fees" ;;
+  }
+
+  dimension: net_revenue {
+    type: number
+    label: "net revenue"
+    sql: ${TABLE}."net revenue" ;;
+  }
+
+  dimension: vendor_rebate {
+    type: number
+    label: "vendor rebate"
+    sql: ${TABLE}."vendor rebate" ;;
+  }
+
+  dimension: total_revenue {
+    type: number
+    label: "total revenue"
+    sql: ${TABLE}."total revenue" ;;
+  }
+
+  dimension: gmv {
+    type: number
+    sql: ${TABLE}.GMV ;;
   }
 
   set: detail {
@@ -257,7 +286,12 @@ order by "delivery date" desc, store_id, restaurant_id
       revenue_sales_delivery_fee,
       credit_card_fees,
       damages_estimate,
-      total_deliveries
+      total_deliveries,
+      total_delivery_fees,
+      net_revenue,
+      vendor_rebate,
+      total_revenue,
+      gmv
     ]
   }
 }
