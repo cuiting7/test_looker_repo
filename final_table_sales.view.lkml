@@ -274,6 +274,11 @@ view: final_table_sales {
     sql: ${TABLE}.GMV ;;
   }
 
+  measure: sum_gmv  {
+    type: sum
+    sql: ${gmv} ;;
+  }
+
   set: detail {
     fields: [
       delivery_date,
