@@ -260,6 +260,12 @@ view: final_table_sales {
     sql: ${TABLE}."total deliveries" ;;
   }
 
+  measure: sum_total_deliveries {
+    type: sum
+    sql: ${total_deliveries} ;;
+  }
+
+
   dimension: total_delivery_fees {
     type: number
     label: "total delivery fees"
