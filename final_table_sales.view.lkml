@@ -170,7 +170,7 @@ view: final_table_sales {
              , ("delivery fees" + "daily subscription revenue" - "delivery cost") as "net revenue"
              , ("vendor sales") * 0.048 as "vendor rebate"
              , (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") AS "total revenue"
-             , "vendor sales" + (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") as "GMV"
+             , "vendor sales" + (("vendor sales") * 0.048 + "delivery fees" + "daily subscription revenue" - "delivery cost") as gmv
       from revenue_fees
       order by "delivery date" desc, store_id, restaurant_id
        ;;
@@ -292,7 +292,7 @@ view: final_table_sales {
 
   dimension: gmv {
     type: number
-    sql: ${TABLE}.GMV ;;
+    sql: ${TABLE}.gmv;;
   }
 
   measure: sum_gmv  {
