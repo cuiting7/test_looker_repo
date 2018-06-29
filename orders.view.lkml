@@ -181,7 +181,6 @@ view: orders {
 
   set: detail {
     fields: [
-      invoice_id,
       store_id,
       restaurant_id,
       sum_vendor_sales
